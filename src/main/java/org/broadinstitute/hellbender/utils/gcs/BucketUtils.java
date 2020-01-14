@@ -40,7 +40,8 @@ import java.util.function.Function;
 public final class BucketUtils {
     public static final String GCS_SCHEME = "gs";
     public static final String GCS_PREFIX = GCS_SCHEME + "://";
-    public static final String HDFS_PREFIX = "hdfs://";
+    public static final String HDFS_SCHEME = "hdfs";
+    public static final String HDFS_PREFIX = HDFS_SCHEME + "://";
 
     // slashes omitted since hdfs paths seem to only have 1 slash which would be weirder to include than no slashes
     public static final String FILE_PREFIX = "file:";
@@ -67,6 +68,13 @@ public final class BucketUtils {
     public static boolean isCloudStorageUrl(final java.nio.file.Path path) {
         // the initial "" protects us against a null scheme
         return ("" + path.toUri().getScheme() + "://").equals(GCS_PREFIX);
+    }
+
+    /**
+     * Returns true if the given path is a HDFS (Hadoop filesystem) URL.
+     */
+    public static boolean isHadoopUrl(GATKPathSpecifier pathSpecifier) {
+        return pathSpecifier == null ? false : pathSpecifier.getURI().getScheme().equals(HDFS_SCHEME);
     }
 
     /**
@@ -116,7 +124,7 @@ public final class BucketUtils {
                 FileSystem fs = file.getFileSystem(new Configuration());
                 inputStream = fs.open(file);
             } else {
-                 inputStream = new FileInputStream(path);
+                inputStream = new FileInputStream(path);
             }
 
             if(IOUtil.hasBlockCompressedExtension(path)){

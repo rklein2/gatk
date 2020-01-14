@@ -17,7 +17,7 @@ public interface ReferenceSparkSource {
      * Returns whether this reference source can be used with Spark broadcast.
      * Currently, only {@link ReferenceTwoBitSparkSource} is compatible with the Spark broadcast implementation.
      */
-    default public boolean isCompatibleWithSparkBroadcast(){
+    default boolean isCompatibleWithSparkBroadcast(){
         return this instanceof ReferenceTwoBitSparkSource;
     }
 }
