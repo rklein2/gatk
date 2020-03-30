@@ -26,17 +26,26 @@ public final class NaiveHeterozygousPileupGenotypingUtils {
         private final AllelicCountCollection hetAllelicCounts;
         private final AllelicCountCollection hetNormalAllelicCounts;
 
-
+        /**
+         * @param hetNormalAllelicCounts    {@code null}, if result generated in case-only mode
+         */
         NaiveHeterozygousPileupGenotypingResult(final AllelicCountCollection hetAllelicCounts,
                                                 final AllelicCountCollection hetNormalAllelicCounts) {
             this.hetAllelicCounts = Utils.nonNull(hetAllelicCounts);
             this.hetNormalAllelicCounts = hetNormalAllelicCounts;
+            if (hetNormalAllelicCounts != null) {
+                Utils.validateArg(hetAllelicCounts.getIntervals().equals(hetNormalAllelicCounts.getIntervals()),
+                        "Allelic-count sites in NaiveHeterozygousPileupGenotypingResult must match across case and matched-normal samples.");
+            }
         }
 
         public AllelicCountCollection getHetAllelicCounts() {
             return hetAllelicCounts;
         }
 
+        /**
+         * @return {@code null}, if result generated in case-only mode
+         */
         public AllelicCountCollection getHetNormalAllelicCounts() {
             return hetNormalAllelicCounts;
         }
