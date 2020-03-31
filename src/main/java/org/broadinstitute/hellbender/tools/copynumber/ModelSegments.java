@@ -59,8 +59,8 @@ import java.util.stream.Collectors;
  *     Next, we segment, if available, the denoised copy ratios and the alternate-allele fractions at the
  *     genotyped heterozygous sites.  This is done using kernel segmentation (see {@link KernelSegmenter}).
  *     Various segmentation parameters control the sensitivity of the segmentation and should be selected
- *     appropriately for each analysis.  If a segments file produced by {@link SegmentJointSamples} has been provided,
- *     the corresponding segmentation will be used instead and this step will be skipped.
+ *     appropriately for each analysis.  If a Picard interval-list file has been specified by the {@code segments}
+ *     argument, the corresponding segmentation will be used instead and this step will be skipped.
  * </p>
  *
  * <p>
@@ -266,8 +266,15 @@ public final class ModelSegments extends CommandLineProgram {
     private File inputNormalAllelicCountsFile = null;
 
     @Argument(
-            doc = "Input file containing segments (output of SegmentJointSamples).  " +
-                    "Segmentation will not be performed by ModelSegments.",
+            doc = "Input file containing denoised copy ratios for a matched normal (output of CollectAllelicCounts).",
+            fullName = CopyNumberStandardArgument.NORMAL_ALLELIC_COUNTS_FILE_LONG_NAME,
+            optional = true
+    )
+    private File inputNormalDenoisedCopyRatiosFile = null;
+
+    @Argument(
+            doc = "Input Picard interval-list file specifying segments.  " +
+                    "If provided, kernel-segmentation step will be skipped.",
             fullName = CopyNumberStandardArgument.SEGMENTS_FILE_LONG_NAME,
             optional = true
     )
