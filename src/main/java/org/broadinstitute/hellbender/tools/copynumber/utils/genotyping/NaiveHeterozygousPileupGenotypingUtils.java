@@ -79,18 +79,16 @@ public final class NaiveHeterozygousPileupGenotypingUtils {
         final String sampleName = filteredAllelicCounts.getMetadata().getSampleName();
 
         //filter on total count in case sample
-        logger.info(String.format("Filtering allelic counts with total count less than %d in case sample %s...", minTotalAlleleCountCase, sampleName));
         filteredAllelicCounts = new AllelicCountCollection(
                 metadata,
                 filteredAllelicCounts.getRecords().stream()
                         .filter(ac -> ac.getTotalReadCount() >= minTotalAlleleCountCase)
                         .collect(Collectors.toList()));
-        logger.info(String.format("Retained %d / %d sites after filtering on total count in case sample %s...",
-                filteredAllelicCounts.size(), allelicCounts.size(), sampleName));
+        logger.info(String.format("Retained %d / %d sites after filtering allelic counts with total count less than %d in case sample %s...",
+                filteredAllelicCounts.size(), allelicCounts.size(), minTotalAlleleCountCase, sampleName));
 
         //filter on overlap with copy-ratio intervals, if available
         if (denoisedCopyRatios != null) {
-            logger.info(String.format("Filtering allelic-count sites not overlapping with copy-ratio intervals in case sample %s...", sampleName));
             filteredAllelicCounts = new AllelicCountCollection(
                     metadata,
                     filteredAllelicCounts.getRecords().stream()
@@ -106,19 +104,17 @@ public final class NaiveHeterozygousPileupGenotypingUtils {
             //filter on homozygosity in case sample
             logger.info("No matched normal was provided, not running in matched-normal mode...");
 
-            logger.info("Performing binomial testing and filtering homozygous allelic counts...");
             hetAllelicCounts = new AllelicCountCollection(
                     metadata,
                     filteredAllelicCounts.getRecords().stream()
                             .filter(ac -> calculateHomozygousLogRatio(ac, genotypingBaseErrorRate) < genotypingHomozygousLogRatioThreshold)
                             .collect(Collectors.toList()));
-            logger.info(String.format("Retained %d / %d sites after testing for heterozygosity in case sample %s...",
+            logger.info(String.format("Retained %d / %d sites after filtering on heterozygosity in case sample %s...",
                     hetAllelicCounts.size(), allelicCounts.size(), sampleName));
             hetNormalAllelicCounts = null;
         } else {
             //use matched normal
             logger.info("Matched normal was provided, running in matched-normal mode...");
-            logger.info("Performing binomial testing and filtering homozygous allelic counts in matched normal...");
             if (!normalAllelicCounts.getIntervals().equals(allelicCounts.getIntervals())) {
                 throw new UserException.BadInput("Allelic-count sites in case sample and matched normal do not match. " +
                         "Run CollectAllelicCounts using the same interval list of sites for both samples.");
@@ -132,18 +128,16 @@ public final class NaiveHeterozygousPileupGenotypingUtils {
             final String normalSampleName = normalMetadata.getSampleName();
 
             //filter on total count in matched normal
-            logger.info(String.format("Filtering allelic counts with total count less than %d in matched-normal sample %s...", minTotalAlleleCountNormal, normalSampleName));
             AllelicCountCollection filteredNormalAllelicCounts = new AllelicCountCollection(
                     normalMetadata,
                     normalAllelicCounts.getRecords().stream()
                             .filter(ac -> ac.getTotalReadCount() >= minTotalAlleleCountNormal)
                             .collect(Collectors.toList()));
-            logger.info(String.format("Retained %d / %d sites after filtering on total count in matched-normal sample %s...",
-                    filteredNormalAllelicCounts.size(), normalAllelicCounts.size(), normalSampleName));
+            logger.info(String.format("Retained %d / %d sites after filtering allelic counts with total count less than %d in matched-normal sample %s...",
+                    filteredNormalAllelicCounts.size(), normalAllelicCounts.size(), minTotalAlleleCountNormal, normalSampleName));
 
             //filter matched normal on overlap with copy-ratio intervals, if available
             if (denoisedCopyRatios != null) {
-                logger.info(String.format("Filtering allelic-count sites not overlapping with copy-ratio intervals in matched-normal sample %s...", normalSampleName));
                 filteredNormalAllelicCounts = new AllelicCountCollection(
                         normalMetadata,
                         filteredNormalAllelicCounts.getRecords().stream()
@@ -159,7 +153,7 @@ public final class NaiveHeterozygousPileupGenotypingUtils {
                     filteredNormalAllelicCounts.getRecords().stream()
                             .filter(ac -> calculateHomozygousLogRatio(ac, genotypingBaseErrorRate) < genotypingHomozygousLogRatioThreshold)
                             .collect(Collectors.toList()));
-            logger.info(String.format("Retained %d / %d sites after testing for heterozygosity in matched-normal sample %s...",
+            logger.info(String.format("Retained %d / %d sites after filtering on heterozygosity in matched-normal sample %s...",
                     hetNormalAllelicCounts.size(), normalAllelicCounts.size(), normalSampleName));
 
             //retrieve sites in case sample

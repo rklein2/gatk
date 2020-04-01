@@ -13,20 +13,19 @@ import org.broadinstitute.hellbender.tools.copynumber.arguments.CopyNumberArgume
 import org.broadinstitute.hellbender.tools.copynumber.arguments.CopyNumberStandardArgument;
 import org.broadinstitute.hellbender.tools.copynumber.arguments.SomaticGenotypingArgumentCollection;
 import org.broadinstitute.hellbender.tools.copynumber.arguments.SomaticSegmentationArgumentCollection;
+import org.broadinstitute.hellbender.tools.copynumber.formats.collections.AbstractSampleLocatableCollection;
 import org.broadinstitute.hellbender.tools.copynumber.formats.collections.AllelicCountCollection;
 import org.broadinstitute.hellbender.tools.copynumber.formats.collections.CopyRatioCollection;
 import org.broadinstitute.hellbender.tools.copynumber.formats.collections.SimpleIntervalCollection;
 import org.broadinstitute.hellbender.tools.copynumber.formats.metadata.LocatableMetadata;
+import org.broadinstitute.hellbender.tools.copynumber.formats.metadata.SampleLocatableMetadata;
 import org.broadinstitute.hellbender.tools.copynumber.segmentation.MultisampleMultidimensionalKernelSegmenter;
 import org.broadinstitute.hellbender.tools.copynumber.utils.genotyping.NaiveHeterozygousPileupGenotypingUtils;
 import org.broadinstitute.hellbender.tools.copynumber.utils.segmentation.KernelSegmenter;
 import org.broadinstitute.hellbender.utils.Utils;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -184,7 +183,7 @@ public final class SegmentJointSamples extends CommandLineProgram {
         final List<AllelicCountCollection> allelicCountsPerSample = inputAllelicCountsFiles.stream()
                 .map(f -> readOptionalFileOrNull(f, AllelicCountCollection::new))
                 .collect(Collectors.toList());
-        final AllelicCountCollection normalAllelicCounts = new AllelicCountCollection(inputNormalAllelicCountsFile);
+        final AllelicCountCollection normalAllelicCounts = readOptionalFileOrNull(inputNormalAllelicCountsFile, AllelicCountCollection::new);
         logHeapUsage("reading input files");
 
         validateData(denoisedCopyRatiosPerSample, allelicCountsPerSample, normalAllelicCounts);
@@ -272,15 +271,8 @@ public final class SegmentJointSamples extends CommandLineProgram {
         Utils.validateArg(denoisedCopyRatiosPerSample.size() == allelicCountsPerSample.size(),
                 "Number of copy-ratio and allelic-count collections for the case samples must be equal.");
 
-        final List<LocatableMetadata> metadataDenoisedCopyRatiosPerSample = denoisedCopyRatiosPerSample.stream()
-                .map(CopyRatioCollection::getMetadata)
-                .collect(Collectors.toList());
-        final List<LocatableMetadata> metadataAllelicCountsPerSample = allelicCountsPerSample.stream()
-                .map(AllelicCountCollection::getMetadata)
-                .collect(Collectors.toList());
-
         Utils.validateArg(IntStream.range(0, denoisedCopyRatiosPerSample.size())
-                .allMatch(i -> metadataDenoisedCopyRatiosPerSample.equals(metadataAllelicCountsPerSample)),
+                .allMatch(i -> denoisedCopyRatiosPerSample.get(i).getMetadata().equals(allelicCountsPerSample.get(i).getMetadata())),
                 "Metadata do not match across copy-ratio and allelic-count collections for the case samples.  " +
                         "Check that the sample orders for the corresponding inputs are identical.");
 
@@ -292,16 +284,18 @@ public final class SegmentJointSamples extends CommandLineProgram {
 
         Utils.validateArg((int) Stream.of(allelicCountsPerSample, Collections.singletonList(normalAllelicCounts))
                         .flatMap(Collection::stream)
+                        .filter(Objects::nonNull)
                         .map(AllelicCountCollection::getIntervals)
                         .distinct()
                         .count() == 1,
                 "Allelic-count sites must be identical across all samples.");
 
         final List<SAMSequenceDictionary> sequenceDictionaries = Stream.of(
-                metadataDenoisedCopyRatiosPerSample.stream().map(LocatableMetadata::getSequenceDictionary).collect(Collectors.toList()),
-                metadataAllelicCountsPerSample.stream().map(LocatableMetadata::getSequenceDictionary).collect(Collectors.toList()),
-                Collections.singletonList(normalAllelicCounts.getMetadata().getSequenceDictionary()))
+                denoisedCopyRatiosPerSample, allelicCountsPerSample, Collections.singletonList(normalAllelicCounts))
                 .flatMap(Collection::stream)
+                .filter(Objects::nonNull)
+                .map(AbstractSampleLocatableCollection::getMetadata)
+                .map(SampleLocatableMetadata::getSequenceDictionary)
                 .collect(Collectors.toList());
         IntStream.range(0, sequenceDictionaries.size() - 1).forEach(i -> {
             if (!CopyNumberArgumentValidationUtils.isSameDictionary(sequenceDictionaries.get(i), sequenceDictionaries.get(i + 1))) {
