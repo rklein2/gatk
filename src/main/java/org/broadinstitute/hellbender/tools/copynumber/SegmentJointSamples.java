@@ -180,11 +180,12 @@ public final class SegmentJointSamples extends CommandLineProgram {
         final List<CopyRatioCollection> denoisedCopyRatiosPerSample = inputDenoisedCopyRatiosFiles.stream()
                 .map(f -> readOptionalFileOrNull(f, CopyRatioCollection::new))
                 .collect(Collectors.toList());
+        logHeapUsage("reading copy-ratio files");
         final List<AllelicCountCollection> allelicCountsPerSample = inputAllelicCountsFiles.stream()
                 .map(f -> readOptionalFileOrNull(f, AllelicCountCollection::new))
                 .collect(Collectors.toList());
         final AllelicCountCollection normalAllelicCounts = readOptionalFileOrNull(inputNormalAllelicCountsFile, AllelicCountCollection::new);
-        logHeapUsage("reading input files");
+        logHeapUsage("reading allelic-count files");
 
         validateData(denoisedCopyRatiosPerSample, allelicCountsPerSample, normalAllelicCounts);
         logHeapUsage("validating input files");
