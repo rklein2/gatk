@@ -266,13 +266,6 @@ public final class ModelSegments extends CommandLineProgram {
     private File inputNormalAllelicCountsFile = null;
 
     @Argument(
-            doc = "Input file containing denoised copy ratios for a matched normal (output of CollectAllelicCounts).",
-            fullName = CopyNumberStandardArgument.NORMAL_ALLELIC_COUNTS_FILE_LONG_NAME,
-            optional = true
-    )
-    private File inputNormalDenoisedCopyRatiosFile = null;
-
-    @Argument(
             doc = "Input Picard interval-list file specifying segments.  " +
                     "If provided, kernel-segmentation step will be skipped.",
             fullName = CopyNumberStandardArgument.SEGMENTS_FILE_LONG_NAME,
@@ -318,8 +311,16 @@ public final class ModelSegments extends CommandLineProgram {
     private final int maxNumSmoothingIterations = modelingArguments.maxNumSmoothingIterations;
     private final int numSmoothingIterationsPerFit = modelingArguments.numSmoothingIterationsPerFit;
 
+    private void logHeapUsage(final String phase) {
+        final int mb = 1024 * 1024;
+        final Runtime runtime = Runtime.getRuntime();
+        logger.info("Used memory (MB) after " + phase + ": " + (runtime.totalMemory() - runtime.freeMemory()) / mb);
+    }
+
     @Override
     protected Object doWork() {
+        logHeapUsage("initializing engine");
+
         validateArguments();
 
         //read input files (return null if not available) and validate metadata
@@ -346,6 +347,7 @@ public final class ModelSegments extends CommandLineProgram {
                 logger.warn("Sequence dictionary in segments file does not match.");
             }
         }
+        logHeapUsage("reading files");
 
         //genotype hets
         //hetAllelicCounts is set to an empty collection containing only metadata if no allelic counts are available;
@@ -374,6 +376,7 @@ public final class ModelSegments extends CommandLineProgram {
                 hetAllelicCounts.write(hetAllelicCountsFile);
             }
         }
+        logHeapUsage("genotyping");
 
         //if denoised copy ratios are still null at this point, we assign an empty collection containing only metadata
         if (denoisedCopyRatios == null) {
@@ -397,6 +400,7 @@ public final class ModelSegments extends CommandLineProgram {
                             ImmutableSet.copyOf(windowSizes).asList(),
                             numChangepointsPenaltyFactor, numChangepointsPenaltyFactor);
         }
+        logHeapUsage("segmentation");
 
         logger.info("Modeling available denoised copy ratios and heterozygous allelic counts...");
         //initial MCMC model fitting performed by MultidimensionalModeller constructor
@@ -416,6 +420,8 @@ public final class ModelSegments extends CommandLineProgram {
 
         //write final segments and parameters to file
         writeModeledSegmentsAndParameterFiles(modeller, FINAL_FIT_FILE_TAG);
+
+        logHeapUsage("modeling");
 
         //write final segments for copy-ratio caller (TODO remove this and MEAN_LOG2_COPY_RATIO column when new caller is available)
         final OverlapDetector<CopyRatio> copyRatioMidpointOverlapDetector = denoisedCopyRatios.getMidpointOverlapDetector();

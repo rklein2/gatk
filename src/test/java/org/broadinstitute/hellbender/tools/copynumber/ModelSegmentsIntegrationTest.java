@@ -6,6 +6,8 @@ import org.broadinstitute.hellbender.exceptions.UserException;
 import org.broadinstitute.hellbender.testutils.ArgumentsBuilder;
 import org.broadinstitute.hellbender.tools.copynumber.arguments.CopyNumberArgumentValidationUtils;
 import org.broadinstitute.hellbender.tools.copynumber.arguments.CopyNumberStandardArgument;
+import org.broadinstitute.hellbender.tools.copynumber.arguments.SomaticModelingArgumentCollection;
+import org.broadinstitute.hellbender.tools.copynumber.arguments.SomaticSegmentationArgumentCollection;
 import org.broadinstitute.hellbender.tools.copynumber.formats.collections.*;
 import org.broadinstitute.hellbender.tools.copynumber.formats.metadata.SampleLocatableMetadata;
 import org.broadinstitute.hellbender.tools.copynumber.models.AlleleFractionParameter;
@@ -42,6 +44,10 @@ public final class ModelSegmentsIntegrationTest extends CommandLineProgramTest {
     private static final File TUMOR_ALLELIC_COUNTS_FILE = new File("/home/slee/working/germline-tagging/REBC-AC9B/chr13.REBC-AC9B-TTP1-A-1-1-D-A525-36.allelicCounts.tsv");
     private static final File NORMAL_ALLELIC_COUNTS_FILE = new File("/home/slee/working/germline-tagging/REBC-AC9B/chr13.REBC-AC9B-NB1-A-1-0-D-A553-36.allelicCounts.tsv");
 
+//    private static final File TUMOR_DENOISED_COPY_RATIOS_FILE = new File("/mnt/4AB658D7B658C4DB/working/test_files/wgs250.luad.tumor.G25786.TCGA-78-7146-01A-11D-2036-08.2.denoisedCR.tsv");
+//    private static final File TUMOR_ALLELIC_COUNTS_FILE = new File("/mnt/4AB658D7B658C4DB/working/test_files/wgs.luad.tumor.G25786.TCGA-78-7146-01A-11D-2036-08.2.allelicCounts.tsv");
+//    private static final File NORMAL_ALLELIC_COUNTS_FILE = new File("/mnt/4AB658D7B658C4DB/working/test_files/wgs.luad.normal.G25786.TCGA-78-7146-10A-01D-2036-08.2.allelicCounts.tsv");
+
     private static final SampleLocatableMetadata EXPECTED_METADATA = new CopyRatioCollection(TUMOR_DENOISED_COPY_RATIOS_FILE).getMetadata();
 
     @Test
@@ -50,10 +56,12 @@ public final class ModelSegmentsIntegrationTest extends CommandLineProgramTest {
         final String outputPrefix = "test";
         final ArgumentsBuilder argsBuilder = new ArgumentsBuilder()
                 .add(CopyNumberStandardArgument.DENOISED_COPY_RATIOS_FILE_LONG_NAME, TUMOR_DENOISED_COPY_RATIOS_FILE.getAbsolutePath())
-                .add(CopyNumberStandardArgument.ALLELIC_COUNTS_FILE_LONG_NAME, TUMOR_ALLELIC_COUNTS_FILE.getAbsolutePath())
-                .add(CopyNumberStandardArgument.NORMAL_ALLELIC_COUNTS_FILE_LONG_NAME, NORMAL_ALLELIC_COUNTS_FILE.getAbsolutePath())
+//                .add(CopyNumberStandardArgument.ALLELIC_COUNTS_FILE_LONG_NAME, TUMOR_ALLELIC_COUNTS_FILE.getAbsolutePath())
+//                .add(CopyNumberStandardArgument.NORMAL_ALLELIC_COUNTS_FILE_LONG_NAME, NORMAL_ALLELIC_COUNTS_FILE.getAbsolutePath())
                 .addOutput(outputDir)
                 .add(StandardArgumentDefinitions.VERBOSITY_NAME, "INFO")
+                .add(SomaticSegmentationArgumentCollection.KERNEL_APPROXIMATION_DIMENSION_LONG_NAME, "10")
+                .add(SomaticModelingArgumentCollection.MAXIMUM_NUMBER_OF_SMOOTHING_ITERATIONS_LONG_NAME, "0")
                 .add(CopyNumberStandardArgument.OUTPUT_PREFIX_LONG_NAME, outputPrefix);
         runCommandLine(argsBuilder);
         assertOutputFiles(outputDir, outputPrefix, true, true);
