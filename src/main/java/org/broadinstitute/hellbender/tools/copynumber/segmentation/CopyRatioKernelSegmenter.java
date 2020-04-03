@@ -11,6 +11,7 @@ import java.util.List;
 
 /**
  * Segments copy-ratio data using kernel segmentation.  Segments do not span chromosomes.
+ * Refactored to be a thin wrapper around the {@link MultisampleMultidimensionalKernelSegmenter}.
  *
  * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
  */

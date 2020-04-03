@@ -13,6 +13,7 @@ import java.util.List;
  * Segments copy-ratio and alternate-allele-fraction data using kernel segmentation.  Segments do not span chromosomes.
  * Only the first allele-fraction site in each copy-ratio interval is used.  The alternate-allele fraction in
  * copy-ratio intervals that do not contain any sites is imputed to be balanced at 0.5.
+ * Refactored to be a thin wrapper around the {@link MultisampleMultidimensionalKernelSegmenter}.
  *
  * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
  */
@@ -57,5 +58,4 @@ public final class MultidimensionalKernelSegmenter {
                 numChangepointsPenaltyLinearFactor,
                 numChangepointsPenaltyLogLinearFactor);
     }
-
 }

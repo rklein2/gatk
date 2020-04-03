@@ -40,13 +40,13 @@ public final class ModelSegmentsIntegrationTest extends CommandLineProgramTest {
     private static final File NORMAL_ALLELIC_COUNTS_FILE_WITH_MISSING_SITES = new File(TEST_SUB_DIR,
             "model-segments-wes-normal-allelic-counts-with-missing-sites.allelicCounts.tsv");
 
-    private static final File TUMOR_DENOISED_COPY_RATIOS_FILE = new File("/home/slee/working/germline-tagging/REBC-AC9B/chr13.REBC-AC9B-TTP1-A-1-1-D-A525-36.denoisedCR.tsv");
-    private static final File TUMOR_ALLELIC_COUNTS_FILE = new File("/home/slee/working/germline-tagging/REBC-AC9B/chr13.REBC-AC9B-TTP1-A-1-1-D-A525-36.allelicCounts.tsv");
-    private static final File NORMAL_ALLELIC_COUNTS_FILE = new File("/home/slee/working/germline-tagging/REBC-AC9B/chr13.REBC-AC9B-NB1-A-1-0-D-A553-36.allelicCounts.tsv");
+//    private static final File TUMOR_DENOISED_COPY_RATIOS_FILE = new File("/home/slee/working/germline-tagging/REBC-AC9B/chr13.REBC-AC9B-TTP1-A-1-1-D-A525-36.denoisedCR.tsv");
+//    private static final File TUMOR_ALLELIC_COUNTS_FILE = new File("/home/slee/working/germline-tagging/REBC-AC9B/chr13.REBC-AC9B-TTP1-A-1-1-D-A525-36.allelicCounts.tsv");
+//    private static final File NORMAL_ALLELIC_COUNTS_FILE = new File("/home/slee/working/germline-tagging/REBC-AC9B/chr13.REBC-AC9B-NB1-A-1-0-D-A553-36.allelicCounts.tsv");
 
-//    private static final File TUMOR_DENOISED_COPY_RATIOS_FILE = new File("/mnt/4AB658D7B658C4DB/working/test_files/wgs250.luad.tumor.G25786.TCGA-78-7146-01A-11D-2036-08.2.denoisedCR.tsv");
-//    private static final File TUMOR_ALLELIC_COUNTS_FILE = new File("/mnt/4AB658D7B658C4DB/working/test_files/wgs.luad.tumor.G25786.TCGA-78-7146-01A-11D-2036-08.2.allelicCounts.tsv");
-//    private static final File NORMAL_ALLELIC_COUNTS_FILE = new File("/mnt/4AB658D7B658C4DB/working/test_files/wgs.luad.normal.G25786.TCGA-78-7146-10A-01D-2036-08.2.allelicCounts.tsv");
+    private static final File TUMOR_DENOISED_COPY_RATIOS_FILE = new File("/mnt/4AB658D7B658C4DB/working/test_files/wgs250.luad.tumor.G25786.TCGA-78-7146-01A-11D-2036-08.2.denoisedCR.tsv");
+    private static final File TUMOR_ALLELIC_COUNTS_FILE = new File("/mnt/4AB658D7B658C4DB/working/test_files/wgs.luad.tumor.G25786.TCGA-78-7146-01A-11D-2036-08.2.allelicCounts.tsv");
+    private static final File NORMAL_ALLELIC_COUNTS_FILE = new File("/mnt/4AB658D7B658C4DB/working/test_files/wgs.luad.normal.G25786.TCGA-78-7146-10A-01D-2036-08.2.allelicCounts.tsv");
 
     private static final SampleLocatableMetadata EXPECTED_METADATA = new CopyRatioCollection(TUMOR_DENOISED_COPY_RATIOS_FILE).getMetadata();
 

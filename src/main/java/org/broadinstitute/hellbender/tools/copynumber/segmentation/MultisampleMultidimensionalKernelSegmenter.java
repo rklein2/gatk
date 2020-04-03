@@ -98,20 +98,7 @@ public final class MultisampleMultidimensionalKernelSegmenter {
         allelicCountOverlapDetector = allelicCountsFirstSample.getOverlapDetector();
         comparator = denoisedCopyRatiosFirstSample.getComparator();
 
-        if (denoisedCopyRatiosFirstSample.getRecords().isEmpty()) {
-            mode = Mode.ALLELE_FRACTION_ONLY;
-            multidimensionalPointsPerChromosome = IntStream.range(0, allelicCountsFirstSample.getRecords().size()).boxed()
-                    .map(i -> new MultidimensionalPoint(
-                            allelicCountsFirstSample.getRecords().get(i).getInterval(),
-                            null,
-                            allelicCountsPerSample.stream()
-                                    .mapToDouble(ac -> ac.getRecords().get(i).getAlternateAlleleFraction())
-                                    .toArray()))
-                    .collect(Collectors.groupingBy(
-                            MultidimensionalPoint::getContig,
-                            LinkedHashMap::new,
-                            Collectors.toList()));
-        } else if (allelicCountsFirstSample.getRecords().isEmpty()) {
+        if (allelicCountsFirstSample.getRecords().isEmpty()) {
             mode = Mode.COPY_RATIO_ONLY;
             multidimensionalPointsPerChromosome = IntStream.range(0, denoisedCopyRatiosFirstSample.getRecords().size()).boxed()
                     .map(i -> new MultidimensionalPoint(
@@ -120,6 +107,19 @@ public final class MultisampleMultidimensionalKernelSegmenter {
                                     .mapToDouble(cr -> cr.getRecords().get(i).getLog2CopyRatioValue())
                                     .toArray(),
                             null))
+                    .collect(Collectors.groupingBy(
+                            MultidimensionalPoint::getContig,
+                            LinkedHashMap::new,
+                            Collectors.toList()));
+        } else if (denoisedCopyRatiosFirstSample.getRecords().isEmpty()) {
+            mode = Mode.ALLELE_FRACTION_ONLY;
+            multidimensionalPointsPerChromosome = IntStream.range(0, allelicCountsFirstSample.getRecords().size()).boxed()
+                    .map(i -> new MultidimensionalPoint(
+                            allelicCountsFirstSample.getRecords().get(i).getInterval(),
+                            null,
+                            allelicCountsPerSample.stream()
+                                    .mapToDouble(ac -> ac.getRecords().get(i).getAlternateAlleleFraction())
+                                    .toArray()))
                     .collect(Collectors.groupingBy(
                             MultidimensionalPoint::getContig,
                             LinkedHashMap::new,
@@ -249,7 +249,7 @@ public final class MultisampleMultidimensionalKernelSegmenter {
 
         final int maxNumChangepointsPerChromosome = maxNumSegmentsPerChromosome - 1;
 
-        logger.info(String.format("Finding changepoints in (%d, %d) data points and %d chromosomes across %d samples...",
+        logger.info(String.format("Finding changepoints in (%d, %d) data points and %d chromosomes across %d sample(s)...",
                 denoisedCopyRatiosFirstSample.size(), allelicCountsFirstSample.size(), multidimensionalPointsPerChromosome.size(), numSamples));
 
         //loop over chromosomes, find changepoints, and create allele-fraction segments
@@ -257,7 +257,7 @@ public final class MultisampleMultidimensionalKernelSegmenter {
         for (final String chromosome : multidimensionalPointsPerChromosome.keySet()) {
             final List<MultidimensionalPoint> multidimensionalPointsInChromosome = multidimensionalPointsPerChromosome.get(chromosome);
             final int numMultidimensionalPointsInChromosome = multidimensionalPointsInChromosome.size();
-            logger.info(String.format("Finding changepoints in %d data points in chromosome %s across %d samples...",
+            logger.info(String.format("Finding changepoints in %d data points in chromosome %s across %d sample(s)...",
                     numMultidimensionalPointsInChromosome, chromosome, numSamples));
 
             if (numMultidimensionalPointsInChromosome < MIN_NUM_POINTS_REQUIRED_PER_CHROMOSOME) {
@@ -284,7 +284,7 @@ public final class MultisampleMultidimensionalKernelSegmenter {
                 previousChangepoint = changepoint;
             }
         }
-        logger.info(String.format("Found %d segments in %d chromosomes across %d samples.", segments.size(), multidimensionalPointsPerChromosome.size(), numSamples));
+        logger.info(String.format("Found %d segments in %d chromosomes across %d sample(s).", segments.size(), multidimensionalPointsPerChromosome.size(), numSamples));
         return new SimpleIntervalCollection(denoisedCopyRatiosFirstSample.getMetadata(), segments);
     }
 
@@ -294,19 +294,19 @@ public final class MultisampleMultidimensionalKernelSegmenter {
         final double standardDeviationCopyRatio = Math.sqrt(kernelVarianceCopyRatio);
         final double standardDeviationAlleleFraction = Math.sqrt(kernelVarianceAlleleFraction);
         switch (mode) {
-            case ALLELE_FRACTION_ONLY:
-                return (p1, p2) -> {
-                    double sum = 0.;
-                    for (int sampleIndex = 0; sampleIndex < numSamples; sampleIndex++) {
-                        sum += KERNEL.apply(standardDeviationAlleleFraction).apply(p1.alternateAlleleFractions[sampleIndex], p2.alternateAlleleFractions[sampleIndex]);
-                    }
-                    return sum;
-                };
             case COPY_RATIO_ONLY:
                 return (p1, p2) -> {
                     double sum = 0.;
                     for (int sampleIndex = 0; sampleIndex < numSamples; sampleIndex++) {
                         sum += KERNEL.apply(standardDeviationCopyRatio).apply(p1.log2CopyRatios[sampleIndex], p2.log2CopyRatios[sampleIndex]);
+                    }
+                    return sum;
+                };
+            case ALLELE_FRACTION_ONLY:
+                return (p1, p2) -> {
+                    double sum = 0.;
+                    for (int sampleIndex = 0; sampleIndex < numSamples; sampleIndex++) {
+                        sum += KERNEL.apply(standardDeviationAlleleFraction).apply(p1.alternateAlleleFractions[sampleIndex], p2.alternateAlleleFractions[sampleIndex]);
                     }
                     return sum;
                 };
