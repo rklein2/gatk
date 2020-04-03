@@ -35,7 +35,7 @@ public final class AlleleFractionKernelSegmenterUnitTest extends GATKBaseTest {
     public Object[][] dataAlleleFractionKernelSegmenter() {
         final int numPoints = 10000;
         final double noiseLevel = 0.001;
-        final double homFraction = 0.1;     //low hom fraction minimizes uncertainty in the changepoints coming from runs of adjacent homs near the changepoints
+        final double homFraction = 0.025;   //low hom fraction minimizes uncertainty in the changepoints coming from runs of adjacent homs near the changepoints
 
         final Random rng = new Random(RANDOM_SEED);
         rng.setSeed(RANDOM_SEED);
@@ -100,7 +100,7 @@ public final class AlleleFractionKernelSegmenterUnitTest extends GATKBaseTest {
     public void testAlleleFractionKernelSegmenter(final AllelicCountCollection allelicCounts,
                                                   final SimpleIntervalCollection segmentsExpected) {
         final int maxNumChangepointsPerChromosome = 25;
-        final double kernelVariance = 0.01;
+        final double kernelVariance = 0.05;
         final int kernelApproximationDimension = 20;
         final List<Integer> windowSizes = Arrays.asList(8, 16, 32, 64);
         final double numChangepointsPenaltyLinearFactor = 1.;

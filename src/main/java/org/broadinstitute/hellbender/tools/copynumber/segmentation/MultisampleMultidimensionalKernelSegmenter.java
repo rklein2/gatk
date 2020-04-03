@@ -36,6 +36,10 @@ import java.util.stream.Stream;
 public final class MultisampleMultidimensionalKernelSegmenter {
     private static final Logger logger = LogManager.getLogger(MultisampleMultidimensionalKernelSegmenter.class);
 
+    private enum Mode {
+        COPY_RATIO_ONLY, ALLELE_FRACTION_ONLY, COPY_RATIO_AND_ALLELE_FRACTION
+    }
+
     private static final int MIN_NUM_POINTS_REQUIRED_PER_CHROMOSOME = 10;
 
     //assume alternate-allele fraction is 0.5 for missing data
@@ -77,6 +81,7 @@ public final class MultisampleMultidimensionalKernelSegmenter {
         }
     }
 
+    private final Mode mode;
     private final int numSamples;
     private final CopyRatioCollection denoisedCopyRatiosFirstSample;
     private final AllelicCountCollection allelicCountsFirstSample;
@@ -91,48 +96,78 @@ public final class MultisampleMultidimensionalKernelSegmenter {
         denoisedCopyRatiosFirstSample = denoisedCopyRatiosPerSample.get(0);
         allelicCountsFirstSample = allelicCountsPerSample.get(0);
         allelicCountOverlapDetector = allelicCountsFirstSample.getOverlapDetector();
-        this.comparator = denoisedCopyRatiosFirstSample.getComparator();
-        final Map<SimpleInterval, Integer> allelicSiteToIndexMap = IntStream.range(0, allelicCountsFirstSample.size()).boxed()
-                .collect(Collectors.toMap(
-                        i -> allelicCountsFirstSample.getRecords().get(i).getInterval(),
-                        Function.identity(),
-                        (u, v) -> {
-                            throw new GATKException.ShouldNeverReachHereException("Cannot have duplicate sites.");
-                        },   //sites should already be distinct
-                        LinkedHashMap::new));
-        final Map<Integer, Integer> intervalIndexToSiteIndexMap = IntStream.range(0, denoisedCopyRatiosFirstSample.getRecords().size()).boxed()
-                .collect(Collectors.toMap(
-                        Function.identity(),
-                        i -> allelicCountOverlapDetector.getOverlaps(denoisedCopyRatiosFirstSample.getRecords().get(i)).stream()
-                                .map(AllelicCount::getInterval)
-                                .min(comparator::compare)
-                                .map(allelicSiteToIndexMap::get)
-                                .orElse(-1),
-                        (u, v) -> {
-                            throw new GATKException.ShouldNeverReachHereException("Cannot have duplicate indices.");
-                        },
-                        LinkedHashMap::new));
-        final int numAllelicCountsToUse = (int) intervalIndexToSiteIndexMap.values().stream()
-                .filter(i -> i != -1)
-                .count();
-        logger.info(String.format("Using first allelic-count site in each copy-ratio interval (%d / %d) for multidimensional segmentation...",
-                numAllelicCountsToUse, allelicCountsFirstSample.size()));
-        multidimensionalPointsPerChromosome = IntStream.range(0, denoisedCopyRatiosFirstSample.getRecords().size()).boxed()
-                .map(i -> new MultidimensionalPoint(
-                        denoisedCopyRatiosFirstSample.getRecords().get(i).getInterval(),
-                        denoisedCopyRatiosPerSample.stream()
-                                .mapToDouble(denoisedCopyRatios -> denoisedCopyRatios.getRecords().get(i).getLog2CopyRatioValue())
-                                .toArray(),
-                        allelicCountsPerSample.stream()
-                                .map(allelicCounts -> intervalIndexToSiteIndexMap.get(i) != -1
-                                        ? allelicCounts.getRecords().get(intervalIndexToSiteIndexMap.get(i))
-                                        : BALANCED_ALLELIC_COUNT)
-                                .mapToDouble(AllelicCount::getAlternateAlleleFraction)
-                                .toArray()))
-                .collect(Collectors.groupingBy(
-                        MultidimensionalPoint::getContig,
-                        LinkedHashMap::new,
-                        Collectors.toList()));
+        comparator = denoisedCopyRatiosFirstSample.getComparator();
+
+        if (denoisedCopyRatiosFirstSample.getRecords().isEmpty()) {
+            mode = Mode.ALLELE_FRACTION_ONLY;
+            multidimensionalPointsPerChromosome = IntStream.range(0, allelicCountsFirstSample.getRecords().size()).boxed()
+                    .map(i -> new MultidimensionalPoint(
+                            allelicCountsFirstSample.getRecords().get(i).getInterval(),
+                            null,
+                            allelicCountsPerSample.stream()
+                                    .mapToDouble(ac -> ac.getRecords().get(i).getAlternateAlleleFraction())
+                                    .toArray()))
+                    .collect(Collectors.groupingBy(
+                            MultidimensionalPoint::getContig,
+                            LinkedHashMap::new,
+                            Collectors.toList()));
+        } else if (allelicCountsFirstSample.getRecords().isEmpty()) {
+            mode = Mode.COPY_RATIO_ONLY;
+            multidimensionalPointsPerChromosome = IntStream.range(0, denoisedCopyRatiosFirstSample.getRecords().size()).boxed()
+                    .map(i -> new MultidimensionalPoint(
+                            denoisedCopyRatiosFirstSample.getRecords().get(i).getInterval(),
+                            denoisedCopyRatiosPerSample.stream()
+                                    .mapToDouble(cr -> cr.getRecords().get(i).getLog2CopyRatioValue())
+                                    .toArray(),
+                            null))
+                    .collect(Collectors.groupingBy(
+                            MultidimensionalPoint::getContig,
+                            LinkedHashMap::new,
+                            Collectors.toList()));
+        } else {
+            mode = Mode.COPY_RATIO_AND_ALLELE_FRACTION;
+            final Map<SimpleInterval, Integer> allelicSiteToIndexMap = IntStream.range(0, allelicCountsFirstSample.size()).boxed()
+                    .collect(Collectors.toMap(
+                            i -> allelicCountsFirstSample.getRecords().get(i).getInterval(),
+                            Function.identity(),
+                            (u, v) -> {
+                                throw new GATKException.ShouldNeverReachHereException("Cannot have duplicate sites.");
+                            },   //sites should already be distinct
+                            LinkedHashMap::new));
+            final Map<Integer, Integer> intervalIndexToSiteIndexMap = IntStream.range(0, denoisedCopyRatiosFirstSample.getRecords().size()).boxed()
+                    .collect(Collectors.toMap(
+                            Function.identity(),
+                            i -> allelicCountOverlapDetector.getOverlaps(denoisedCopyRatiosFirstSample.getRecords().get(i)).stream()
+                                    .map(AllelicCount::getInterval)
+                                    .min(comparator::compare)
+                                    .map(allelicSiteToIndexMap::get)
+                                    .orElse(-1),
+                            (u, v) -> {
+                                throw new GATKException.ShouldNeverReachHereException("Cannot have duplicate indices.");
+                            },
+                            LinkedHashMap::new));
+            final int numAllelicCountsToUse = (int) intervalIndexToSiteIndexMap.values().stream()
+                    .filter(i -> i != -1)
+                    .count();
+            logger.info(String.format("Using first allelic-count site in each copy-ratio interval (%d / %d) for multidimensional segmentation...",
+                    numAllelicCountsToUse, allelicCountsFirstSample.size()));
+            multidimensionalPointsPerChromosome = IntStream.range(0, denoisedCopyRatiosFirstSample.getRecords().size()).boxed()
+                    .map(i -> new MultidimensionalPoint(
+                            denoisedCopyRatiosFirstSample.getRecords().get(i).getInterval(),
+                            denoisedCopyRatiosPerSample.stream()
+                                    .mapToDouble(denoisedCopyRatios -> denoisedCopyRatios.getRecords().get(i).getLog2CopyRatioValue())
+                                    .toArray(),
+                            allelicCountsPerSample.stream()
+                                    .map(allelicCounts -> intervalIndexToSiteIndexMap.get(i) != -1
+                                            ? allelicCounts.getRecords().get(intervalIndexToSiteIndexMap.get(i))
+                                            : BALANCED_ALLELIC_COUNT)
+                                    .mapToDouble(AllelicCount::getAlternateAlleleFraction)
+                                    .toArray()))
+                    .collect(Collectors.groupingBy(
+                            MultidimensionalPoint::getContig,
+                            LinkedHashMap::new,
+                            Collectors.toList()));
+        }
     }
 
     //TODO most of this is redundant with validation performed in SegmentJointSamples, eliminate?
@@ -258,13 +293,34 @@ public final class MultisampleMultidimensionalKernelSegmenter {
                                                                                              final double kernelScalingAlleleFraction) {
         final double standardDeviationCopyRatio = Math.sqrt(kernelVarianceCopyRatio);
         final double standardDeviationAlleleFraction = Math.sqrt(kernelVarianceAlleleFraction);
-        return (p1, p2) -> {
-            double sum = 0.;
-            for (int sampleIndex = 0; sampleIndex < numSamples; sampleIndex++) {
-                sum += KERNEL.apply(standardDeviationCopyRatio).apply(p1.log2CopyRatios[sampleIndex], p2.log2CopyRatios[sampleIndex]) +
-                        kernelScalingAlleleFraction * KERNEL.apply(standardDeviationAlleleFraction).apply(p1.alternateAlleleFractions[sampleIndex], p2.alternateAlleleFractions[sampleIndex]);
-            }
-            return sum;
-        };
+        switch (mode) {
+            case ALLELE_FRACTION_ONLY:
+                return (p1, p2) -> {
+                    double sum = 0.;
+                    for (int sampleIndex = 0; sampleIndex < numSamples; sampleIndex++) {
+                        sum += KERNEL.apply(standardDeviationAlleleFraction).apply(p1.alternateAlleleFractions[sampleIndex], p2.alternateAlleleFractions[sampleIndex]);
+                    }
+                    return sum;
+                };
+            case COPY_RATIO_ONLY:
+                return (p1, p2) -> {
+                    double sum = 0.;
+                    for (int sampleIndex = 0; sampleIndex < numSamples; sampleIndex++) {
+                        sum += KERNEL.apply(standardDeviationCopyRatio).apply(p1.log2CopyRatios[sampleIndex], p2.log2CopyRatios[sampleIndex]);
+                    }
+                    return sum;
+                };
+            case COPY_RATIO_AND_ALLELE_FRACTION:
+                return (p1, p2) -> {
+                    double sum = 0.;
+                    for (int sampleIndex = 0; sampleIndex < numSamples; sampleIndex++) {
+                        sum += KERNEL.apply(standardDeviationCopyRatio).apply(p1.log2CopyRatios[sampleIndex], p2.log2CopyRatios[sampleIndex]) +
+                                kernelScalingAlleleFraction * KERNEL.apply(standardDeviationAlleleFraction).apply(p1.alternateAlleleFractions[sampleIndex], p2.alternateAlleleFractions[sampleIndex]);
+                    }
+                    return sum;
+                };
+            default:
+                throw new GATKException.ShouldNeverReachHereException("Encountered unknown Mode.");
+        }
     }
 }

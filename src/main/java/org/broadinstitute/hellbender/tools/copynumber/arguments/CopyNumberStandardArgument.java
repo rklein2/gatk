@@ -15,8 +15,6 @@ public final class CopyNumberStandardArgument {
 
     public static final String NORMAL_ALLELIC_COUNTS_FILE_LONG_NAME = "normal-allelic-counts";
 
-    public static final String NORMAL_DENOISED_COPY_RATIOS_FILE_LONG_NAME = "normal-denoised-copy-ratios";
-
     public static final String SEGMENTS_FILE_LONG_NAME = "segments";
 
     public static final String OUTPUT_PREFIX_LONG_NAME = "output-prefix";

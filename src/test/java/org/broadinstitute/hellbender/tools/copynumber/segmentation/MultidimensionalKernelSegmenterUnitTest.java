@@ -53,7 +53,7 @@ public final class MultidimensionalKernelSegmenterUnitTest extends GATKBaseTest 
         //generate numAllSites alternate-allele fractions
         final int numAllSites = 1000;
         final double noiseLevel = 0.001;
-        final double homFraction = 0.1;     //low hom fraction minimizes uncertainty in the changepoints coming from runs of adjacent homs near the changepoints
+        final double homFraction = 0.025;   //low hom fraction minimizes uncertainty in the changepoints coming from runs of adjacent homs near the changepoints
         final List<Double> allMinorAlleleFractions = Arrays.asList(0.45, 0.05, 0.25, 0.45, 0.05, 0.25, 0.45, 0.05, 0.25, 0.45, 0.05, 0.25);
         final List<Double> allAlternateAlleleFractions = IntStream.range(0, numAllSites).boxed()
                 .map(i -> rng.nextFloat() < homFraction
@@ -148,7 +148,7 @@ public final class MultidimensionalKernelSegmenterUnitTest extends GATKBaseTest 
                                                     final SimpleIntervalCollection segmentsExpected) {
         final int maxNumChangepointsPerChromosome = 25;
         final double kernelVarianceCopyRatio = 0.;
-        final double kernelVarianceAlleleFraction = 0.025;
+        final double kernelVarianceAlleleFraction = 0.05;
         final double kernelScalingAlleleFraction = 1.;
         final int kernelApproximationDimension = 20;
         final List<Integer> windowSizes = Arrays.asList(8, 16, 32, 64);
