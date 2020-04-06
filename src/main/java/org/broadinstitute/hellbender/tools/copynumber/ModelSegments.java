@@ -2,9 +2,7 @@ package org.broadinstitute.hellbender.tools.copynumber;
 
 import com.google.common.collect.ImmutableSet;
 import htsjdk.samtools.util.OverlapDetector;
-import org.broadinstitute.barclay.argparser.Argument;
-import org.broadinstitute.barclay.argparser.ArgumentCollection;
-import org.broadinstitute.barclay.argparser.CommandLineProgramProperties;
+import org.broadinstitute.barclay.argparser.*;
 import org.broadinstitute.barclay.help.DocumentedFeature;
 import org.broadinstitute.hellbender.cmdline.CommandLineProgram;
 import org.broadinstitute.hellbender.cmdline.StandardArgumentDefinitions;
@@ -43,6 +41,8 @@ import java.util.stream.Collectors;
  *     segmentation and model inference.
  * </p>
  *
+ * <h4>Genotyping step</h4>
+ *
  * <p>
  *     If allelic counts are available, the first step in the inference process is to genotype heterozygous sites,
  *     as the allelic counts at these sites will subsequently be modeled to infer segmented minor-allele fraction.
@@ -54,6 +54,8 @@ import java.util.stream.Collectors;
  *     for determining sites with loss of heterozygosity in high purity case samples; such sites will be genotyped as
  *     homozygous if the matched-normal sample is not available.)
  * </p>
+ *
+ * <h4>Segmentation step</h4>
  *
  * <p>
  *     Next, we segment, if available, the denoised copy ratios and the alternate-allele fractions at the
@@ -71,6 +73,8 @@ import java.util.stream.Collectors;
  *     discussed above.  This can have implications for analyses involving the sex chromosomes;
  *     see comments in {@link CreateReadCountPanelOfNormals}.
  * </p>
+ *
+ * <h4>Modeling step</h4>
  *
  * <p>
  *     After segmentation is complete, we run Markov-chain Monte Carlo (MCMC) to determine posteriors for
@@ -98,8 +102,10 @@ import java.util.stream.Collectors;
  *         This can only be provided if allelic counts for the case sample are also provided.
  *     </li>
  *     <li>
- *         (Optional) Segments file from {@link SegmentJointSamples}.
- *         Segmentation will not be performed by {@link ModelSegments}.
+ *         (Optional, Advanced) Picard interval-list file containing a joint segmentation output by
+ *         a previous run of {@link ModelSegments} in multisample mode.
+ *         Segmentation step will not be performed.
+ *         See description of multisample mode below.
  *     </li>
  *     <li>
  *         Output prefix.
@@ -223,11 +229,148 @@ import java.util.stream.Collectors;
  *          -O output_dir
  * </pre>
  *
+ * <h2>Multisample Mode (ADVANCED / EXPERIMENTAL)</h2>
+ *
+ * Multisample mode is activated when inputs for more than one case sample are specified via the
+ * {@code denoised-copy-ratios} and/or {@code allelic-counts} arguments.  In this mode, {@link ModelSegments}
+ * finds common segments across multiple case samples using denoised copy ratios and allelic counts.
+ * This segmentation can be used as input to subsequent, individual runs of {@link ModelSegments}
+ * on each of the case samples.
+ *
+ * <p>
+ *     Possible data inputs are: 1) denoised copy ratios for the case samples, 2) allelic counts for the case samples,
+ *     and 3) allelic counts for a matched-normal sample.  All available inputs will be used to to perform
+ *     segmentation.
+ * </p>
+ *
+ * <p>
+ *     As in single-sample mode, the first step is to genotype heterozygous sites.  If allelic counts from
+ *     a matched normal are available, each case sample is genotyped individually as usual.  If no matched normal
+ *     is available, each case sample is genotyped individually, but the intersection of all heterozygous sites
+ *     found across all case samples is then used for segmentation.  (As in single-sample mode, determining sites
+ *     with loss of heterozygosity in high purity case samples will be difficult if the matched-normal sample
+ *     is not available.)
+ * </p>
+ *
+ * <p>
+ *     Next, we jointly segment, if available, the denoised copy ratios and the alternate-allele fractions at the
+ *     genotyped heterozygous sites across all case samples (which can include the matched normal, if desired).
+ *     The same caveats discussed above also apply to segmentation in multisample mode.
+ * </p>
+ *
+ * <p>
+ *     The final output of multisample mode is a Picard interval-list file specifying the joint segmentation.
+ *     This can be provided to subsequent, individual runs of {@link ModelSegments} via the {@code segments} argument
+ *     to perform modeling for each of the case samples; the segmentation step will be skipped in these runs.
+ * </p>
+ *
+ * <p>
+ *     Note that the genotyping step will be repeated in these runs, so filters identical to those used in the
+ *     multisample-mode run should be used.  If allelic counts from a matched normal are available, the resulting set of
+ *     heterozygous sites used for modeling in these runs should then be identical to that used for segmentation in
+ *     the multisample-mode run.  (However, when no matched normal is available, the intersection of all heterozygous sites
+ *     performed in the multisample-mode run will not be performed in the single-sample mode runs, which may yield
+ *     sets of sites for modeling that differ across samples.)
+ * </p>
+ *
+ * <p>
+ *     See below for usage examples illustrating a run in multisample mode followed by multiple runs in single-sample mode.
+ * </p>
+ *
+ * <h3>Inputs</h3>
+ *
+ * <ul>
+ *     <li>
+ *         (Optional) List of more than one denoised-copy-ratios files from {@link DenoiseReadCounts}.
+ *         If a list of allelic counts is not provided, then this is required.
+ *         If a list of allelic counts is provided, then sample order must match across both lists.
+ *     </li>
+ *     <li>
+ *         (Optional) List of more than one allelic-counts files from {@link CollectAllelicCounts}.
+ *         If a list of denoised copy ratios is not provided, then this is required.
+ *         If a list of denoised copy ratios is provided, then sample order must match across both lists.
+ *     </li>
+ *     <li>
+ *         (Optional) Matched-normal allelic-counts file from {@link CollectAllelicCounts}.
+ *         This can only be provided if a list of allelic counts for the case samples are also provided.
+ *     </li>
+ * </ul>
+ *
+ * <h3>Outputs</h3>
+ *
+ * <ul>
+ *     <li>
+ *         Joint-segments .joint.interval_list file.
+ *         This segmentation can be used as input to subsequent, individual runs of {@link ModelSegments} on each of
+ *         the case samples.
+ *     </li>
+ * </ul>
+ *
+ * <h3>Usage examples</h3>
+ *
+ * <h4>Multisample-mode run (outputs {@code multisample.joint.interval_list} containing the joint segmentation) </h4>
+ *
+ * <pre>
+ *     gatk ModelSegments \
+ *          --denoised-copy-ratios normal.denoisedCR.tsv \
+ *          --denoised-copy-ratios tumor-1.denoisedCR.tsv \
+ *          ...
+ *          --denoised-copy-ratios tumor-N.denoisedCR.tsv \
+ *          --allelic-counts normal.allelicCounts.tsv \
+ *          --allelic-counts tumor-1.allelicCounts.tsv \
+ *          ...
+ *          --allelic-counts tumor-N.allelicCounts.tsv \
+ *          --normal-allelic-counts normal.allelicCounts.tsv \
+ *          --output-prefix multisample
+ *          -O output_dir
+ * </pre>
+ *
+ * <h4>Single-sample mode runs (segmentation is taken from {@code multisample.joint.interval_list},
+ * so the segmentation step is skipped in each run)</h4>
+ *
+ * <pre>
+ *     gatk ModelSegments \
+ *          --segments multisample.joint.interval_list
+ *          --denoised-copy-ratios normal.denoisedCR.tsv \
+ *          --allelic-counts normal.allelicCounts.tsv \
+ *          --normal-allelic-counts normal.allelicCounts.tsv \
+ *          --output-prefix normal
+ *          -O output_dir
+ * </pre>
+ *
+ * <pre>
+ *     gatk ModelSegments \
+ *          --segments multisample.joint.interval_list
+ *          --denoised-copy-ratios tumor-1.denoisedCR.tsv \
+ *          --allelic-counts tumor-1.allelicCounts.tsv \
+ *          --normal-allelic-counts normal.allelicCounts.tsv \
+ *          --output-prefix tumor-1
+ *          -O output_dir
+ * </pre>
+ *
+ * <pre>
+ *     ...
+ * </pre>
+ *
+ * <pre>
+ *     gatk ModelSegments \
+ *          --segments multisample.joint.interval_list
+ *          --denoised-copy-ratios tumor-N.denoisedCR.tsv \
+ *          --allelic-counts tumor-N.allelicCounts.tsv \
+ *          --normal-allelic-counts normal.allelicCounts.tsv \
+ *          --output-prefix tumor-N
+ *          -O output_dir
+ * </pre>
+ *
  * @author Samuel Lee &lt;slee@broadinstitute.org&gt;
  */
 @CommandLineProgramProperties(
-        summary = "Models segmented copy ratios from denoised copy ratios and segmented minor-allele fractions from allelic counts",
-        oneLineSummary = "Models segmented copy ratios from denoised copy ratios and segmented minor-allele fractions from allelic counts",
+        summary = "Models segmented copy ratios from denoised copy ratios and segmented minor-allele fractions from allelic counts. " +
+                "If multiple samples are specified, finds common segments using denoised copy ratios and allelic counts; " +
+                "this common segmentation can be used in subsequent runs to perform modeling of each sample.",
+        oneLineSummary = "Models segmented copy ratios from denoised copy ratios and segmented minor-allele fractions from allelic counts. " +
+                "If multiple samples are specified, finds common segments using denoised copy ratios and allelic counts; " +
+                "this common segmentation can be used in subsequent runs to perform modeling of each sample.",
         programGroup = CopyNumberProgramGroup.class
 )
 @DocumentedFeature
@@ -245,29 +388,36 @@ public final class ModelSegments extends CommandLineProgram {
     public static final String ALLELE_FRACTION_LEGACY_SEGMENTS_FILE_SUFFIX = ".af.igv" + SEGMENTS_FILE_SUFFIX;
 
     @Argument(
-            doc = "Input file containing denoised copy ratios (output of DenoiseReadCounts).",
+            doc = "Input files containing denoised copy ratios (output of DenoiseReadCounts).  " +
+                    "If multiple samples are specified, joint kernel segmentation will be performed but modeling will be skipped; " +
+                    "sample order must match that of input allelic-counts files.",
             fullName = CopyNumberStandardArgument.DENOISED_COPY_RATIOS_FILE_LONG_NAME,
-            optional = true
+            minElements = 1
     )
-    private File inputDenoisedCopyRatiosFile = null;
+    private List<File> inputDenoisedCopyRatiosFiles = null;
 
     @Argument(
-            doc = "Input file containing allelic counts (output of CollectAllelicCounts).",
+            doc = "Input files containing allelic counts (output of CollectAllelicCounts).  " +
+                    "If multiple samples are specified, joint kernel segmentation will be performed but modeling will be skipped; " +
+                    "sample order must match that of input denoised-copy-ratios files.",
             fullName = CopyNumberStandardArgument.ALLELIC_COUNTS_FILE_LONG_NAME,
-            optional = true
+            minElements = 1
     )
-    private File inputAllelicCountsFile = null;
+    private List<File> inputAllelicCountsFiles = null;
 
     @Argument(
-            doc = "Input file containing allelic counts for a matched normal (output of CollectAllelicCounts).",
+            doc = "Input file containing allelic counts for a matched normal (output of CollectAllelicCounts).  " +
+                    "If specified, these allelic counts will be used to perform genotyping but will not be used for joint kernel segmentation; " +
+                    "if the latter is desired, additionally specify this file as one of the arguments to --allelic-counts.",
             fullName = CopyNumberStandardArgument.NORMAL_ALLELIC_COUNTS_FILE_LONG_NAME,
             optional = true
     )
     private File inputNormalAllelicCountsFile = null;
 
+    @Advanced
     @Argument(
             doc = "Input Picard interval-list file specifying segments.  " +
-                    "If provided, kernel-segmentation step will be skipped.",
+                    "If provided, kernel segmentation will be skipped.",
             fullName = CopyNumberStandardArgument.SEGMENTS_FILE_LONG_NAME,
             optional = true
     )
